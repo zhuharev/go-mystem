@@ -4,21 +4,22 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"regexp"
 	"strings"
-)
-
-const (
-	TEXT_SEPARATOR  = "~!=~#~=!~"
-	REGEX_EXTRACTOR = `(.*?)\{(.+?)\|?\?{0,2}\}([\s\.\?\+\-\!\,\"\'\#\$\%\&\@\*\(\)\[\]\\\/\=\;\~\_]*)`
+	"encoding/json"
 )
 
 type myStem struct {
 	path          string
 	args          []string
-	wordExtractor *regexp.Regexp
 
 	InputCharFilter *strings.Replacer
+}
+
+type word struct {
+	Analysis []struct{
+		Lex string `json:"lex"`
+	} `json:"analysis"`
+	Text string `json:"text"`
 }
 
 func New(path string, args []string) *myStem {
@@ -27,23 +28,19 @@ func New(path string, args []string) *myStem {
 	m.args = args
 
 	// append c flag
-	m.args = append(m.args, "-c")
+	m.args = append(m.args, "-c", "--format", "json")
 
 	// make replacer
 	m.InputCharFilter = strings.NewReplacer(
-		"{", "",
-		"}", "",
 		"«", "'",
 		"»", "'",
 		"—", "-",
 		"_", "-",
 		"\r\n", " ",
+		"\r", " ",
 		"\n", " ",
 		"\t", " ",
-		TEXT_SEPARATOR, "---",
 	)
-	// make regex to take the first initial word form
-	m.wordExtractor = regexp.MustCompile(REGEX_EXTRACTOR)
 
 	return m
 }
@@ -51,19 +48,19 @@ func New(path string, args []string) *myStem {
 func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err error) {
 	var inputBuffer, outBuffer bytes.Buffer
 
-	// form input buffer
-	byteSeparator := []byte(TEXT_SEPARATOR)
 	for i := range inputTexts {
 		// filter bad chars
-		text := m.InputCharFilter.Replace(inputTexts[i])
-
-		// include byte separator
-		if i != 0 {
-			inputBuffer.Write(byteSeparator)
+		text := strings.TrimSpace(m.InputCharFilter.Replace(inputTexts[i]))
+		if text == "" {
+			text = " "
 		}
 
 		// one text = one line
-		inputBuffer.Write(append([]byte(text), '\n'))
+		if i == len(inputTexts) - 1 {
+			inputBuffer.Write([]byte(text))
+		} else {
+			inputBuffer.Write(append([]byte(text), '\n'))
+		}
 	}
 
 	// run proc
@@ -80,21 +77,43 @@ func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err 
 	}
 
 	// parse output
-	outBytes := bytes.Split(outBuffer.Bytes(), byteSeparator)
-	for i := range outBytes {
-		transformedTexts = append(
-			transformedTexts,
-			string(m.wordExtractor.ReplaceAll(bytes.Trim(outBytes[i], "\n"), []byte("$2$3"))),
+	outByteTexts := bytes.Split(outBuffer.Bytes(), []byte("\n"))
+	// remove always empty last string from mystem's output
+	outByteTexts = outByteTexts[0:len(outByteTexts) - 1]
+	if len(outByteTexts) != len(inputTexts) {
+		return transformedTexts, fmt.Errorf("error: len(inputTexts)(%d) != len(outByteTexts)(%d) res: %s",
+			len(inputTexts),
+			len(outByteTexts),
+			outBuffer.Bytes(),
 		)
 	}
 
-	// ensure that count of input texts exacts count of transformed texts
-	if len(inputTexts) != len(transformedTexts) {
-		return transformedTexts, fmt.Errorf("error: len(inputTexts)(%d) != len(transformedTexts)(%d) res: %s",
-			len(inputTexts),
-			len(transformedTexts),
-			outBytes,
-		)
+	//parse every word
+	for i := range outByteTexts {
+		var words []word
+		sentence := ""
+
+		err := json.Unmarshal(outByteTexts[i], &words)
+		if err != nil {
+			return transformedTexts, fmt.Errorf("error while decoding json: %s res: %s",
+				err,
+				outByteTexts[i],
+			)
+		}
+
+		for wi := range words {
+			if words[wi].Text == "\n" {
+				continue
+			}
+
+			if len(words[wi].Analysis) != 0 {
+				sentence = fmt.Sprintf("%s%s", sentence, words[wi].Analysis[0].Lex)
+			} else {
+				sentence = fmt.Sprintf("%s%s", sentence, words[wi].Text)
+			}
+		}
+
+		transformedTexts = append(transformedTexts, sentence)
 	}
 
 	return
