@@ -113,7 +113,7 @@ func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err 
 			}
 		}
 
-		transformedTexts = append(transformedTexts, sentence)
+		transformedTexts = append(transformedTexts, strings.TrimSpace(sentence))
 	}
 
 	return
