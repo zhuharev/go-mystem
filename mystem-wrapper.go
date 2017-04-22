@@ -1,23 +1,24 @@
-package mystem_wrapper
+package mystem
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
-	"encoding/json"
 )
 
 type myStem struct {
-	path          string
-	args          []string
+	path string
+	args []string
 
 	InputCharFilter *strings.Replacer
 }
 
-type word struct {
-	Analysis []struct{
-		Lex string `json:"lex"`
+type Word struct {
+	Analysis []struct {
+		Lex      string   `json:"lex"`
+		Grammeme Grammeme `json:"gr"`
 	} `json:"analysis"`
 	Text string `json:"text"`
 }
@@ -46,6 +47,23 @@ func New(path string, args []string) *myStem {
 }
 
 func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err error) {
+	words, err := m.Words(inputTexts)
+	if err != nil {
+		return
+	}
+	for _, word := range words {
+		sentence := ""
+		if len(word.Analysis) != 0 {
+			sentence = fmt.Sprintf("%s%s", sentence, word.Analysis[0].Lex)
+		} else {
+			sentence = fmt.Sprintf("%s%s", sentence, word.Text)
+		}
+		transformedTexts = append(transformedTexts, sentence)
+	}
+	return
+}
+
+func (m *myStem) Words(inputTexts []string) ([]Word, error) {
 	var inputBuffer, outBuffer bytes.Buffer
 
 	for i := range inputTexts {
@@ -56,7 +74,7 @@ func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err 
 		}
 
 		// one text = one line
-		if i == len(inputTexts) - 1 {
+		if i == len(inputTexts)-1 {
 			inputBuffer.Write([]byte(text))
 		} else {
 			inputBuffer.Write(append([]byte(text), '\n'))
@@ -67,35 +85,36 @@ func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err 
 	proc := exec.Command(m.path, m.args...)
 	proc.Stdin = &inputBuffer
 	proc.Stdout = &outBuffer
-	err = proc.Start()
+	err := proc.Start()
 	if err != nil {
-		return transformedTexts, fmt.Errorf("error running mystem: %s", err)
+		return nil, fmt.Errorf("error running mystem: %s", err)
 	}
 	proc.Wait()
 	if err != nil {
-		return transformedTexts, fmt.Errorf("error waiting mystem: %s", err)
+		return nil, fmt.Errorf("error waiting mystem: %s", err)
 	}
 
 	// parse output
 	outByteTexts := bytes.Split(outBuffer.Bytes(), []byte("\n"))
 	// remove always empty last string from mystem's output
-	outByteTexts = outByteTexts[0:len(outByteTexts) - 1]
+	outByteTexts = outByteTexts[0 : len(outByteTexts)-1]
 	if len(outByteTexts) != len(inputTexts) {
-		return transformedTexts, fmt.Errorf("error: len(inputTexts)(%d) != len(outByteTexts)(%d) res: %s",
+		return nil, fmt.Errorf("error: len(inputTexts)(%d) != len(outByteTexts)(%d) res: %s",
 			len(inputTexts),
 			len(outByteTexts),
 			outBuffer.Bytes(),
 		)
 	}
 
+	var result []Word
+
 	//parse every word
 	for i := range outByteTexts {
-		var words []word
-		sentence := ""
+		var words []Word
 
 		err := json.Unmarshal(outByteTexts[i], &words)
 		if err != nil {
-			return transformedTexts, fmt.Errorf("error while decoding json: %s res: %s",
+			return nil, fmt.Errorf("error while decoding json: %s res: %s",
 				err,
 				outByteTexts[i],
 			)
@@ -106,15 +125,9 @@ func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err 
 				continue
 			}
 
-			if len(words[wi].Analysis) != 0 {
-				sentence = fmt.Sprintf("%s%s", sentence, words[wi].Analysis[0].Lex)
-			} else {
-				sentence = fmt.Sprintf("%s%s", sentence, words[wi].Text)
-			}
+			result = append(result, words[wi])
 		}
-
-		transformedTexts = append(transformedTexts, strings.TrimSpace(sentence))
 	}
 
-	return
+	return result, nil
 }
