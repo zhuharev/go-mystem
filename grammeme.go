@@ -5,13 +5,38 @@ import (
 	"strings"
 )
 
-type Grammeme struct {
-	PartOfSpeech string
-	Sex          Sex
+type Grammeme int
+
+// https://tech.yandex.ru/mystem/doc/grammemes-values-docpage/
+const (
+	// sex
+	Male Grammeme = iota << 1
+	Female
+	Neuter
+
+	// todo add other grammems
+	// part of speech
+	// verb's time
+	// case
+	// number
+	// verb inclination
+	// form of adjectives
+	// degree of comparison
+	// verb's face
+	// kind
+	// voice
+	// animation
+	// transitivity
+	// other notation
+)
+
+type Grammems struct {
+	PartOfSpeech Grammeme
+	Sex          Grammeme
 }
 
 // --eng-gr required
-func (g *Grammeme) UnmarshalJSON(data []byte) error {
+func (g *Grammems) UnmarshalJSON(data []byte) error {
 	var str string
 
 	err := json.Unmarshal(data, &str)
@@ -34,11 +59,3 @@ func (g *Grammeme) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
-
-type Sex string
-
-const (
-	Male   Sex = "мужской"
-	Female     = "женский"
-	Neuter     = "средний"
-)
