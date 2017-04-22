@@ -10,7 +10,7 @@ type Grammeme int
 // https://tech.yandex.ru/mystem/doc/grammemes-values-docpage/
 const (
 	// sex
-	Male Grammeme = iota << 1
+	Male Grammeme = (iota + 1) << 1
 	Female
 	Neuter
 
@@ -30,14 +30,23 @@ const (
 	// other notation
 )
 
-type Grammems struct {
-	PartOfSpeech Grammeme
-	Sex          Grammeme
+func (g Grammeme) Sex() Grammeme {
+	if g&Male == Male {
+		return Male
+	} else if g&Female == Female {
+		return Female
+	} else if g&Neuter == Neuter {
+		return Neuter
+	}
+	return 0
 }
 
 // --eng-gr required
-func (g *Grammems) UnmarshalJSON(data []byte) error {
-	var str string
+func (g *Grammeme) UnmarshalJSON(data []byte) error {
+	var (
+		str         string
+		newGrammeme Grammeme
+	)
 
 	err := json.Unmarshal(data, &str)
 	if err != nil {
@@ -49,13 +58,14 @@ func (g *Grammems) UnmarshalJSON(data []byte) error {
 		switch grammeme {
 		// sex
 		case "m":
-			g.Sex = Male
+			newGrammeme |= Male
 		case "f":
-			g.Sex = Female
+			newGrammeme |= Female
 		case "n":
-			g.Sex = Neuter
+			newGrammeme |= Neuter
 		}
 	}
 
+	*g = newGrammeme
 	return nil
 }

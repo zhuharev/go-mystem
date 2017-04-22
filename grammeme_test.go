@@ -8,13 +8,13 @@ import (
 func TestUnmarshal(t *testing.T) {
 	data := []byte(`"S,famn,f,anim=(acc,sg|gen,sg)"`)
 
-	gr := Grammems{}
+	var gr Grammeme
 
 	err := json.Unmarshal(data, &gr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if gr.Sex != Female {
+	if gr.Sex() != Female {
 		t.Fatal("Sex not female")
 	}
 }
