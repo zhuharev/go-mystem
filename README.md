@@ -25,7 +25,7 @@ import (
 
 func main() {
   // create wrapper
-	m := mystem.New("../../bin/mystem", []string{"-d"}) // -d is for context homonymization
+	m := mystem_wrapper.New("../../bin/mystem", []string{"-d"}) // -d is for context homonymization
 
 	sourceTexts := []string{`Данный пакет позволяет запускать Mystem из golang'a и получать выходной текст,
     где каждое слово приведено в свою исходную форму.

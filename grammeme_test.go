@@ -1,4 +1,4 @@
-package mystem
+package mystem_wrapper
 
 import (
 	"encoding/json"
