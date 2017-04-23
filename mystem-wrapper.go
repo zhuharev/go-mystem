@@ -1,4 +1,4 @@
-package mystem_wrapper
+package mystem
 
 import (
 	"bytes"
