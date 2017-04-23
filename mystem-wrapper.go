@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type myStem struct {
+type MyStem struct {
 	path string
 	args []string
 
@@ -23,8 +23,8 @@ type Word struct {
 	Text string `json:"text"`
 }
 
-func New(path string, args []string) *myStem {
-	m := &myStem{}
+func New(path string, args []string) *MyStem {
+	m := &MyStem{}
 	m.path = path
 	m.args = args
 
@@ -46,7 +46,7 @@ func New(path string, args []string) *myStem {
 	return m
 }
 
-func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err error) {
+func (m *MyStem) Transform(inputTexts []string) (transformedTexts []string, err error) {
 	words, err := m.Words(inputTexts)
 	if err != nil {
 		return
@@ -63,7 +63,7 @@ func (m *myStem) Transform(inputTexts []string) (transformedTexts []string, err 
 	return
 }
 
-func (m *myStem) Words(inputTexts []string) ([]Word, error) {
+func (m *MyStem) Words(inputTexts []string) ([]Word, error) {
 	var inputBuffer, outBuffer bytes.Buffer
 
 	for i := range inputTexts {
