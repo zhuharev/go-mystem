@@ -47,23 +47,27 @@ func New(path string, args []string) *MyStem {
 }
 
 func (m *MyStem) Transform(inputTexts []string) (transformedTexts []string, err error) {
-	words, err := m.Words(inputTexts)
+	sentences, err := m.Sentences(inputTexts)
 	if err != nil {
 		return
 	}
-	for _, word := range words {
-		sentence := ""
-		if len(word.Analysis) != 0 {
-			sentence = fmt.Sprintf("%s%s", sentence, word.Analysis[0].Lex)
-		} else {
-			sentence = fmt.Sprintf("%s%s", sentence, word.Text)
+
+	for _, sentence := range sentences {
+		sentenceText := ""
+		for _, word := range sentence {
+			if len(word.Analysis) != 0 {
+				sentenceText = fmt.Sprintf("%s%s", sentenceText, word.Analysis[0].Lex)
+			} else {
+				sentenceText = fmt.Sprintf("%s%s", sentenceText, word.Text)
+			}
 		}
-		transformedTexts = append(transformedTexts, sentence)
+
+		transformedTexts = append(transformedTexts, sentenceText)
 	}
 	return
 }
 
-func (m *MyStem) Words(inputTexts []string) ([]Word, error) {
+func (m *MyStem) Sentences(inputTexts []string) ([][]Word, error) {
 	var inputBuffer, outBuffer bytes.Buffer
 
 	for i := range inputTexts {
@@ -106,11 +110,13 @@ func (m *MyStem) Words(inputTexts []string) ([]Word, error) {
 		)
 	}
 
-	var result []Word
-
-	//parse every word
+	//parse every word into sentences
+	var result [][]Word
 	for i := range outByteTexts {
-		var words []Word
+		var (
+			words         []Word
+			filteredWords []Word
+		)
 
 		err := json.Unmarshal(outByteTexts[i], &words)
 		if err != nil {
@@ -125,8 +131,10 @@ func (m *MyStem) Words(inputTexts []string) ([]Word, error) {
 				continue
 			}
 
-			result = append(result, words[wi])
+			filteredWords = append(filteredWords, words[wi])
 		}
+
+		result = append(result, filteredWords)
 	}
 
 	return result, nil
